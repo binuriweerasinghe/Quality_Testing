@@ -1,12 +1,12 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline with SonarCloud
 
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 permissions:
   contents: read
@@ -21,8 +21,10 @@ jobs:
       # 1. Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      # 2. Set up JDK 17 (or 11 depending on your project)
+      # 2. Set up JDK 17
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
@@ -34,7 +36,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-m2-${{ hashFiles('/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-m2
 
@@ -42,9 +44,21 @@ jobs:
       - name: Run Maven tests
         run: mvn clean test
 
-      # 5. Publish JUnit test results
+      # 5. SonarCloud analysis
+      - name: SonarCloud Scan
+        run: mvn sonar:sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # 6. Publish JUnit test results
       - name: Publish test results
         if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Maven Test Results
+          path: "target/surefire-reports/*.xml"
+          reporter: java-junit
+          token: ${{ secrets.GITHUB_TOKEN }}
         uses: dorny/test-reporter@v1
         with:
           name: Maven Test Results
